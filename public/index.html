@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexaPath - AI Career Agent</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #0a0e1a; color: #e0e0e0; height: 100vh; overflow: hidden; }
+        :root {
+            --bg-dark: #0a0e1a;
+            --bg-card: #111827;
+            --bg-input: #1f2937;
+            --teal: #00B4D8;
+            --green: #2ECC71;
+            --blue: #3A7CD5;
+            --purple: #8B5CF6;
+            --orange: #F59E0B;
+            --red: #EF4444;
+            --border: #374151;
+            --text: #e0e0e0;
+            --text-dim: #9CA3AF;
+        }
+        .app-container { display: flex; height: 100vh; }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px; background: var(--bg-card); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border); }
+        .sidebar-header h1 { font-size: 1.5rem; font-weight: 800; color: var(--teal); }
+        .sidebar-header p { font-size: 0.8rem; color: var(--text-dim); margin-top: 4px; }
+        .sdg-badges { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+        .sdg-badge { padding: 3px 8px; border-radius: 12px; font-size: 0.65rem; font-weight: 600; }
+        .sdg-4 { background: #00689D; color: white; }
+        .sdg-8 { background: #8B1A23; color: white; }
+        .sdg-10 { background: #E5243B; color: white; }
+        .agent-status { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .status-text { font-size: 0.8rem; color: var(--text-dim); }
+        .profile-section { flex: 1; overflow-y: auto; padding: 16px 20px; }
+        .profile-title { font-size: 0.75rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px; }
+        .profile-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.85rem; }
+        .profile-icon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; }
+        .profile-icon.skills { background: rgba(0,180,216,0.2); color: var(--teal); }
+        .profile-icon.city { background: rgba(46,204,113,0.2); color: var(--green); }
+        .profile-icon.interests { background: rgba(139,92,246,0.2); color: var(--purple); }
+        .profile-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+        .profile-tag { background: var(--bg-input); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; color: var(--text-dim); }
+        .sidebar-footer { padding: 12px 20px; border-top: 1px solid var(--border); }
+        .reset-btn { width: 100%; padding: 10px; background: transparent; border: 1px solid var(--border); color: var(--text-dim); border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-family: 'Inter'; transition: all 0.2s; }
+        .reset-btn:hover { border-color: var(--red); color: var(--red); }
+
+        /* Chat Area */
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-dark); }
+        .chat-header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+        .chat-avatar { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--teal), var(--blue)); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .chat-header-text h2 { font-size: 1rem; font-weight: 600; }
+        .chat-header-text p { font-size: 0.75rem; color: var(--text-dim); }
+        .messages { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+        .message { max-width: 75%; display: flex; gap: 10px; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .message.user { align-self: flex-end; flex-direction: row-reverse; }
+        .message.agent { align-self: flex-start; }
+        .msg-avatar { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; margin-top: 2px; }
+        .msg-avatar.agent-av { background: linear-gradient(135deg, var(--teal), var(--blue)); }
+        .msg-avatar.user-av { background: var(--purple); }
+        .msg-bubble { padding: 12px 16px; border-radius: 12px; font-size: 0.9rem; line-height: 1.6; overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap; }
+        .message.agent .msg-bubble { background: var(--bg-card); border: 1px solid var(--border); border-top-left-radius: 4px; }
+        .message.user .msg-bubble { background: var(--blue); color: white; border-top-right-radius: 4px; }
+        .msg-bubble strong { color: var(--teal); }
+        .message.user .msg-bubble strong { color: white; }
+        .typing { display: flex; gap: 4px; padding: 8px 0; }
+        .typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-dim); animation: typing 1.4s infinite; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-4px); } }
+
+        /* Input Area */
+        .input-area { padding: 16px 24px; border-top: 1px solid var(--border); }
+        .suggestions { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+        .suggestion-chip {
+            padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; cursor: pointer;
+            background: var(--bg-input); border: 1px solid var(--border); color: var(--text-dim);
+            transition: all 0.2s; font-family: 'Inter';
+        }
+        .suggestion-chip:hover { border-color: var(--teal); color: var(--teal); }
+        .input-row { display: flex; gap: 10px; align-items: center; }
+        .input-row input {
+            flex: 1; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border);
+            background: var(--bg-input); color: var(--text); font-size: 0.95rem;
+            font-family: 'Inter'; outline: none; transition: border-color 0.2s;
+        }
+        .input-row input:focus { border-color: var(--teal); }
+        .input-row input::placeholder { color: #4B5563; }
+        .send-btn {
+            width: 44px; height: 44px; border-radius: 12px; border: none;
+            background: var(--teal); color: white; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; transition: all 0.2s;
+            font-size: 1.2rem;
+        }
+        .send-btn:hover { background: #0096b3; transform: scale(1.05); }
+        .send-btn:disabled { background: #374151; cursor: not-allowed; transform: none; }
+
+        /* Quick Actions */
+        .quick-actions { display: flex; gap: 8px; margin-top: 10px; }
+        .quick-action {
+            padding: 8px 16px; border-radius: 8px; font-size: 0.8rem; cursor: pointer;
+            border: 1px solid var(--border); background: transparent; color: var(--text-dim);
+            font-family: 'Inter'; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+        }
+        .quick-action:hover { border-color: var(--teal); color: var(--teal); background: rgba(0,180,216,0.05); }
+        .quick-action-icon { font-size: 1rem; }
+
+        .welcome-message { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+        .welcome-message h2 { color: var(--teal); font-size: 1.5rem; margin-bottom: 12px; }
+        .welcome-message p { font-size: 0.9rem; max-width: 500px; margin: 0 auto; line-height: 1.6; }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .message { max-width: 90%; }
+        }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const API = window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api';
+const { useState, useEffect, useRef } = React;
+
+const SUGGESTIONS = [
+    "I know Python and SQL, I'm in Indore",
+    "Find me tech jobs in Jaipur",
+    "What skills do I need for Data Scientist?",
+    "Show me salary ranges",
+    "Give me career advice",
+    "I'm a fresh graduate in Lucknow",
+];
+
+const QUICK_ACTIONS = [
+    { icon: "\uD83D\uDD0D", label: "Find Jobs", msg: "Find me matching jobs" },
+    { icon: "\uD83D\uDCCA", label: "Skill Gap", msg: "Analyze my skill gaps" },
+    { icon: "\uD83C\uDF93", label: "Courses", msg: "Suggest courses for me" },
+    { icon: "\uD83D\uDCB0", label: "Salary", msg: "What's the salary?" },
+    { icon: "\uD83D\uDCCD", label: "Change City", msg: "Change my city to" },
+    { icon: "\u2139\uFE0F", label: "Help", msg: "help" },
+];
+
+function App() {
+    const [messages, setMessages] = useState([
+        { role: 'agent', content: "Welcome to **NexaPath AI Career Agent**!\n\nI'm an autonomous AI that helps you discover career opportunities in Tier-2/3 India. I'm aligned with:\n- **SDG 4** (Quality Education) - Personalized learning\n- **SDG 8** (Decent Work) - Career matching\n- **SDG 10** (Reduced Inequalities) - Bridging opportunity gaps\n\nTo get started, tell me:\n1. **Your skills** - e.g., 'I know Python, SQL'\n2. **Your city** - e.g., 'I'm in Indore'\n\nOr just say something like: *'I know Python and Excel, I'm in Kochi'*" }
+    ]);
+    const [input, setInput] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [profile, setProfile] = useState({ skills: [], city: '', interests: [] });
+    const [showSuggestions, setShowSuggestions] = useState(true);
+    const messagesEnd = useRef(null);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        messagesEnd.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    const sendMessage = async (text) => {
+        if (!text.trim() || loading) return;
+        const userMsg = text.trim();
+        setInput('');
+        setShowSuggestions(false);
+        setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+        setLoading(true);
+
+        try {
+            const res = await fetch(`${API}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: userMsg }),
+            });
+            const data = await res.json();
+            if (data.response) {
+                setMessages(prev => [...prev, { role: 'agent', content: data.response }]);
+            }
+            if (data.profile) {
+                setProfile(data.profile);
+            }
+        } catch (e) {
+            setMessages(prev => [...prev, { role: 'agent', content: "I couldn't connect to the server. Make sure the backend is running (python app.py)." }]);
+        }
+        setLoading(false);
+        inputRef.current?.focus();
+    };
+
+    const resetChat = async () => {
+        await fetch(`${API}/chat/reset`, { method: 'POST' });
+        setMessages([
+            { role: 'agent', content: "Conversation reset! I'm ready to help you explore careers. Tell me your skills and city to get started." }
+        ]);
+        setProfile({ skills: [], city: '', interests: [] });
+        setShowSuggestions(true);
+    };
+
+    const formatMessage = (text) => {
+        return text
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n/g, '<br/>');
+    };
+
+    return (
+        <div className="app-container">
+            {/* Sidebar */}
+            <div className="sidebar">
+                <div className="sidebar-header">
+                    <h1>NexaPath</h1>
+                    <p>AI Career Copilot v2.0</p>
+                    <div className="sdg-badges">
+                        <span className="sdg-badge sdg-4">SDG 4</span>
+                        <span className="sdg-badge sdg-8">SDG 8</span>
+                        <span className="sdg-badge sdg-10">SDG 10</span>
+                    </div>
+                </div>
+                <div className="agent-status">
+                    <div className="status-dot"></div>
+                    <span className="status-text">AI Agent Active - Autonomous Mode</span>
+                </div>
+                <div className="profile-section">
+                    <div className="profile-title">Your Profile</div>
+                    <div className="profile-item">
+                        <div className="profile-icon skills">S</div>
+                        <span>Skills</span>
+                    </div>
+                    <div className="profile-tags">
+                        {profile.skills.length > 0
+                            ? profile.skills.map(s => <span key={s} className="profile-tag">{s}</span>)
+                            : <span className="profile-tag" style={{color:'#6B7280'}}>No skills added yet</span>
+                        }
+                    </div>
+                    <div className="profile-item" style={{marginTop:12}}>
+                        <div className="profile-icon city">C</div>
+                        <span>City</span>
+                    </div>
+                    <div className="profile-tags">
+                        {profile.city
+                            ? <span className="profile-tag">{profile.city}</span>
+                            : <span className="profile-tag" style={{color:'#6B7280'}}>No city selected</span>
+                        }
+                    </div>
+                    <div className="profile-item" style={{marginTop:12}}>
+                        <div className="profile-icon interests">I</div>
+                        <span>Interests</span>
+                    </div>
+                    <div className="profile-tags">
+                        {profile.interests.length > 0
+                            ? profile.interests.map(i => <span key={i} className="profile-tag">{i}</span>)
+                            : <span className="profile-tag" style={{color:'#6B7280'}}>No interests added</span>
+                        }
+                    </div>
+                </div>
+                <div className="sidebar-footer">
+                    <button className="reset-btn" onClick={resetChat}>Reset Conversation</button>
+                </div>
+            </div>
+
+            {/* Chat Area */}
+            <div className="chat-area">
+                <div className="chat-header">
+                    <div className="chat-avatar">AI</div>
+                    <div className="chat-header-text">
+                        <h2>NexaPath AI Agent</h2>
+                        <p>Autonomous career guidance for Tier-2/3 India</p>
+                    </div>
+                </div>
+
+                <div className="messages">
+                    {messages.map((msg, idx) => (
+                        <div key={idx} className={`message ${msg.role}`}>
+                            <div className={`msg-avatar ${msg.role === 'agent' ? 'agent-av' : 'user-av'}`}>
+                                {msg.role === 'agent' ? 'AI' : 'U'}
+                            </div>
+                            <div className="msg-bubble" dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }} />
+                        </div>
+                    ))}
+                    {loading && (
+                        <div className="message agent">
+                            <div className="msg-avatar agent-av">AI</div>
+                            <div className="msg-bubble">
+                                <div className="typing">
+                                    <div className="typing-dot"></div>
+                                    <div className="typing-dot"></div>
+                                    <div className="typing-dot"></div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    <div ref={messagesEnd} />
+                </div>
+
+                <div className="input-area">
+                    {showSuggestions && (
+                        <div className="suggestions">
+                            {SUGGESTIONS.map((s, i) => (
+                                <button key={i} className="suggestion-chip" onClick={() => sendMessage(s)}>{s}</button>
+                            ))}
+                        </div>
+                    )}
+                    <div className="input-row">
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            placeholder="Tell me your skills and city, or ask anything..."
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') sendMessage(input); }}
+                            disabled={loading}
+                        />
+                        <button className="send-btn" onClick={() => sendMessage(input)} disabled={loading || !input.trim()}>
+                            &#9654;
+                        </button>
+                    </div>
+                    <div className="quick-actions">
+                        {QUICK_ACTIONS.map((a, i) => (
+                            <button key={i} className="quick-action" onClick={() => sendMessage(a.msg)}>
+                                <span className="quick-action-icon">{a.icon}</span> {a.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

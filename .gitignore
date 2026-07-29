@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pkl
+*.egg-info/
+dist/
+build/
+
+# Vercel
+.vercel
+
+# Environment & IDE
+.env
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Charts (generated)
+charts/

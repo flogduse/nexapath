@@ -1,0 +1,10 @@
+start.bat
+*.bat
+*.ps1
+__pycache__/
+*.pyc
+.git/
+.vscode/
+charts/
+models/nexapath_model.pkl
+**/temp/
