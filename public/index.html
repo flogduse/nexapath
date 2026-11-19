@@ -167,6 +167,19 @@ function App() {
         messagesEnd.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
+    // One id per browser, so two visitors (or two tabs) never share a transcript.
+    const SESSION_KEY = 'nexapath-session-id';
+    const sessionId = (() => {
+        let id = localStorage.getItem(SESSION_KEY);
+        if (!id) {
+            id = (crypto.randomUUID && crypto.randomUUID()) ||
+                 `s-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            localStorage.setItem(SESSION_KEY, id);
+        }
+        return id;
+    })();
+    const sessionHeaders = () => ({ 'X-Session-Id': sessionId });
+
     const sendMessage = async (text) => {
         if (!text.trim() || loading) return;
         const userMsg = text.trim();
@@ -178,7 +191,7 @@ function App() {
         try {
             const res = await fetch(`${API}/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...sessionHeaders() },
                 body: JSON.stringify({ message: userMsg }),
             });
             const data = await res.json();
@@ -196,7 +209,7 @@ function App() {
     };
 
     const resetChat = async () => {
-        await fetch(`${API}/chat/reset`, { method: 'POST' });
+        await fetch(`${API}/chat/reset`, { method: 'POST', headers: sessionHeaders() });
         setMessages([
             { role: 'agent', content: "Conversation reset! I'm ready to help you explore careers. Tell me your skills and city to get started." }
         ]);

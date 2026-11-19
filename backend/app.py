@@ -2,7 +2,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from models.job_matcher import NexaPathJobMatcher
 from models.career_agent import CareerAgent
+from session_store import SessionStore
 import os
+import uuid
 
 app = Flask(__name__)
 CORS(app)
@@ -11,8 +13,31 @@ DATASET_PATH = os.path.join(os.path.dirname(__file__), 'data', 'jobs_dataset.jso
 
 print("Loading NexaPath model...")
 matcher = NexaPathJobMatcher(DATASET_PATH)
-agent = CareerAgent(matcher)
+# One agent per visitor. A single module-level agent shared every chat across
+# every request on a warm instance (and `/reset` wiped everyone's state).
+sessions: SessionStore[CareerAgent] = SessionStore(lambda: CareerAgent(matcher))
 print("NexaPath AI Agent loaded.")
+
+SESSION_HEADER = 'X-Session-Id'
+
+
+def session_id() -> str:
+    """Resolve the caller's session id, generating one when absent.
+
+    The frontend generates and persists it in localStorage; clients that do not
+    (curl, older builds) still get an isolated conversation per request rather
+    than silently sharing one global transcript.
+    """
+    sid = request.headers.get(SESSION_HEADER)
+    if not sid:
+        payload = request.get_json(silent=True) or {}
+        sid = payload.get('session_id')
+    return str(sid).strip()[:128] if sid else uuid.uuid4().hex
+
+
+def with_session(response, sid: str):
+    response.headers[SESSION_HEADER] = sid
+    return response
 
 
 @app.route('/api/health', methods=['GET'])
@@ -28,7 +53,7 @@ def health():
 @app.route('/api/chat', methods=['POST'])
 def chat():
     """
-    Main AI Agent endpoint.
+    Main AI Agent endpoint. Session-scoped via the X-Session-Id header.
     Request: {"message": "I know Python and SQL, I'm in Indore"}
     Response: {"response": "...", "state": {...}}
     """
@@ -36,31 +61,35 @@ def chat():
     if not data or 'message' not in data:
         return jsonify({"error": "Message is required"}), 400
 
+    sid = session_id()
+    agent = sessions.get(sid)
     user_message = data['message']
     response = agent.process_message(user_message)
 
-    return jsonify({
+    return with_session(jsonify({
         "response": response,
         "state": agent.conversation_state,
         "profile": agent._build_profile(agent.conversation_state),
-    })
+    }), sid)
 
 
 @app.route('/api/chat/reset', methods=['POST'])
 def chat_reset():
-    """Reset the agent conversation state."""
-    agent.conversation_state = {}
-    agent.session_log = []
-    return jsonify({"status": "ok", "message": "Conversation reset"})
+    """Reset only the caller's conversation."""
+    sid = session_id()
+    sessions.discard(sid)
+    return with_session(jsonify({"status": "ok", "message": "Conversation reset"}), sid)
 
 
 @app.route('/api/chat/history', methods=['GET'])
 def chat_history():
-    """Get conversation history."""
-    return jsonify({
+    """Conversation history for the caller's session only."""
+    sid = session_id()
+    agent = sessions.get(sid)
+    return with_session(jsonify({
         "log": agent.session_log,
         "summary": agent.get_session_summary(),
-    })
+    }), sid)
 
 
 @app.route('/api/match', methods=['POST'])

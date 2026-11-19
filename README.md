@@ -60,17 +60,19 @@ NexaPath/
 │   └── index.py             # Vercel serverless entry point
 ├── backend/
 │   ├── app.py               # Flask API server
+│   ├── session_store.py     # TTL/LRU map of session id -> CareerAgent
 │   ├── data/
 │   │   └── jobs_dataset.json # Expanded dataset
 │   └── models/
 │       ├── job_matcher.py    # TF-IDF + Cosine Similarity matching
-│       ├── career_agent.py   # Autonomous AI conversational agent
-│       └── nexapath_model.pkl
+│       └── career_agent.py   # Autonomous AI conversational agent
 ├── frontend/
 │   └── index.html           # React UI (CDN)
 ├── public/
 │   └── index.html           # Vercel static entry
+├── tests/                   # pytest: session store + API isolation
 ├── requirements.txt
+├── requirements-dev.txt
 ├── vercel.json              # Vercel deployment config
 ├── .vercelignore
 ├── start.bat
@@ -91,6 +93,32 @@ NexaPath/
 | `/api/jobs` | GET | Browse all job roles |
 | `/api/sdgs` | GET | SDG alignment info |
 
+### Sessions
+
+Every chat is scoped to a session so two visitors never share a transcript.
+Send an `X-Session-Id` header (the web UI generates one per browser and stores
+it in `localStorage`). If the header is absent, the server makes a new session
+for that request and echoes its id back in the same header. `/api/chat/reset`
+clears only the caller's session; idle sessions expire after two hours and the
+store is capped at 500 sessions per process.
+
+```bash
+curl -X POST https://nexapath.vercel.app/api/chat \
+  -H 'Content-Type: application/json' \
+  -H 'X-Session-Id: demo-1' \
+  -d '{"message": "I know Python, I am in Indore"}'
+```
+
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest tests/ -q
+```
+
+12 tests cover the session store (isolation, LRU eviction, TTL, thread safety)
+and the API (per-session chat state, reset scoping, input validation).
+
 ## How the AI Agent Works
 
 1. **User types a message** — e.g., "I know Python and SQL, I'm in Indore"
@@ -106,3 +134,14 @@ NexaPath/
 **Cosine Similarity** measures the angle between user and job vectors for similarity scoring.
 
 Final score = (Skill Match × 0.6) + (Interest Match × 0.2) + (Location Fit × 0.2)
+
+## Known limits
+
+- Matching is **lexical** (TF-IDF), not semantic: "ML" and "machine learning"
+  only match because both are in the skill vocabulary. There is no embedding model.
+- Intent detection and entity extraction are regex/keyword rules, not an LLM.
+  Unusual phrasings can miss an intent.
+- Sessions live in process memory, so they reset when Vercel recycles an
+  instance. That is fine for a demo; production would use Redis.
+- Course links point at platform home pages, not individual course URLs.
+
